@@ -29,8 +29,8 @@ def get_args():
 
     return args
 
-def metersToFeet(meters):
-    return meters * 39.3701#* 3.2808399
+def metersToInches(meters):
+    return meters * 39.3701
 
 def main():
     definedTags = Tag(TAG_SIZE, FAMILIES)
@@ -156,7 +156,7 @@ def draw_tags(
                (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2,
                cv.LINE_AA)
     cv.putText(image,
-               ("Pose: " + str(round(metersToFeet(pose[0]),3)) + " " + str(round(metersToFeet(pose[1]),3)) + " " + str(round(metersToFeet(pose[2]),3))),
+               ("Pose: " + str(round(metersToInches(pose[0]),3)) + " " + str(round(metersToInches(pose[1]),3)) + " " + str(round(metersToInches(pose[2]),3))),
                (10, 60), cv.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2,
                cv.LINE_AA)
     
