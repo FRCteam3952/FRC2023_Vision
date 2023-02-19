@@ -1,10 +1,14 @@
 import copy
 import time
 import argparse
+import numpy as np
 
 import cv2 as cv
 from pupil_apriltags import Detector
+from tag import Tag
 
+TAG_SIZE = 0.15244
+FAMILIES = "tag16h5"
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -13,8 +17,8 @@ def get_args():
     parser.add_argument("--width", help='cap width', type=int, default=1280)
     parser.add_argument("--height", help='cap height', type=int, default=720)
 
-    parser.add_argument("--families", type=str, default='tag16h5')
-    parser.add_argument("--nthreads", type=int, default=1)
+    parser.add_argument("--families", type=str, default=FAMILIES)
+    parser.add_argument("--nthreads", type=int, default=4)
     parser.add_argument("--quad_decimate", type=float, default=2.0)
     parser.add_argument("--quad_sigma", type=float, default=0.0)
     parser.add_argument("--refine_edges", type=int, default=1)
@@ -25,8 +29,22 @@ def get_args():
 
     return args
 
+def metersToFeet(meters):
+    return meters * 39.3701#* 3.2808399
 
 def main():
+    definedTags = Tag(TAG_SIZE, FAMILIES)
+
+    # Add information about tag locations THIS ARE GLOBAL LOCATIONS IN INCHES
+    # Function Arguments are id,x,y,z,theta_x,theta_y,theta_z
+    definedTags.add_tag(1, 0., 0., 0., 0., 0., 0.)
+    definedTags.add_tag(2, 0., 0., 0., 0., 0., 0.)
+    definedTags.add_tag(3, 0., 0., 0., 0., 0., 0.)
+    definedTags.add_tag(4, 0., 0., 0., 0., 0., 0.)
+    definedTags.add_tag(5, 0., 0., 0., 0., 0., 0.)
+    definedTags.add_tag(6, 0., 0., 0., 0., 0., 0.)
+
+
     args = get_args()
 
     cap_device = args.device
@@ -55,7 +73,7 @@ def main():
         debug=debug,
     )
 
-    elapsed_time = 0
+    elapsed_time = 1
 
     while True:
         start_time = time.time()
@@ -67,26 +85,31 @@ def main():
         image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
         tags = at_detector.detect(
             image,
-            estimate_tag_pose=False,
-            camera_params=None,
-            tag_size=None,
+            estimate_tag_pose=True,
+            camera_params=[307, 307, 640, 360],
+            tag_size=TAG_SIZE,
         )
         detections = []
-        detected = 0
         for detection in tags:
             if detection.tag_id < 1 or detection.tag_id > 9 or detection.decision_margin < 20:
                 continue
-            detected+=1
             detections.append(detection)
 
-        debug_image = draw_tags(debug_image, detections, elapsed_time)
+        if len(detections) > 0:
+            P = [
+                [1, 0, 0],
+                [0, -1, 0],
+                [0, 0, -1]
+            ]
+            pose = definedTags.estimate_pose(detections[0].tag_id, detections[0].pose_R, detections[0].pose_t)
+            debug_image = draw_tags(debug_image, detections, elapsed_time, pose)
 
         elapsed_time = time.time() - start_time
 
         if cv.waitKey(1) & 0xFF == ord('q'):
             break
 
-        cv.imshow('AprilTag Detect Demo', debug_image)
+        cv.imshow('AprilTags', debug_image)
 
     cap.release()
     cv.destroyAllWindows()
@@ -96,9 +119,9 @@ def draw_tags(
     image,
     tags,
     elapsed_time,
+    pose
 ):
     for tag in tags:
-        tag_family = tag.tag_family
         tag_id = tag.tag_id
         center = tag.center
         corners = tag.corners
@@ -123,10 +146,16 @@ def draw_tags(
         cv.putText(image, str(tag_id), (center[0] - 10, center[1] - 10),
                    cv.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2, cv.LINE_AA)
 
+    fps = round(1.0 / elapsed_time)
     cv.putText(image,
-               "Elapsed Time:" + '{:.1f}'.format(elapsed_time * 1000) + "ms",
+               "FPS:" + '{:.1f}'.format(fps),
                (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2,
                cv.LINE_AA)
+    cv.putText(image,
+               ("Pose: " + str(round(metersToFeet(pose[0][0]),3)) + " " + str(round(metersToFeet(pose[1][0]),3)) + " " + str(round(metersToFeet(pose[2][0]),3))),
+               (10, 60), cv.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2,
+               cv.LINE_AA)
+    
 
     return image
 
