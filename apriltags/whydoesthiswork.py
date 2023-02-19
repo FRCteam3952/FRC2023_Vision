@@ -38,7 +38,7 @@ def main():
     # Add information about tag locations THIS ARE GLOBAL LOCATIONS IN INCHES
     # Function Arguments are id,x,y,z,theta_x,theta_y,theta_z
     definedTags.add_tag(1, 0., 0., 0., 0., 0., 0.)
-    definedTags.add_tag(2, 0., 0., 0., 0., 0., 0.)
+    definedTags.add_tag(2, 12., 0., 0., 0., 0., 0.)
     definedTags.add_tag(3, 0., 0., 0., 0., 0., 0.)
     definedTags.add_tag(4, 0., 0., 0., 0., 0., 0.)
     definedTags.add_tag(5, 0., 0., 0., 0., 0., 0.)
@@ -89,19 +89,23 @@ def main():
             camera_params=[307, 307, 640, 360],
             tag_size=TAG_SIZE,
         )
+        
         detections = []
+        pose_x_sum = 0
+        pose_y_sum = 0
+        pose_z_sum = 0
         for detection in tags:
             if detection.tag_id < 1 or detection.tag_id > 9 or detection.decision_margin < 20:
                 continue
             detections.append(detection)
+            curPose = definedTags.estimate_pose(detection.tag_id, detection.pose_R, detection.pose_t)
+            pose_x_sum += curPose[0][0]
+            pose_y_sum += curPose[1][0]
+            pose_z_sum += curPose[2][0]
 
-        if len(detections) > 0:
-            P = [
-                [1, 0, 0],
-                [0, -1, 0],
-                [0, 0, -1]
-            ]
-            pose = definedTags.estimate_pose(detections[0].tag_id, detections[0].pose_R, detections[0].pose_t)
+        size = len(detections)
+        if size > 0:
+            pose = np.array([pose_x_sum/size,pose_y_sum/size,pose_z_sum/size])
             debug_image = draw_tags(debug_image, detections, elapsed_time, pose)
 
         elapsed_time = time.time() - start_time
@@ -152,7 +156,7 @@ def draw_tags(
                (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2,
                cv.LINE_AA)
     cv.putText(image,
-               ("Pose: " + str(round(metersToFeet(pose[0][0]),3)) + " " + str(round(metersToFeet(pose[1][0]),3)) + " " + str(round(metersToFeet(pose[2][0]),3))),
+               ("Pose: " + str(round(metersToFeet(pose[0]),3)) + " " + str(round(metersToFeet(pose[1]),3)) + " " + str(round(metersToFeet(pose[2]),3))),
                (10, 60), cv.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2,
                cv.LINE_AA)
     
