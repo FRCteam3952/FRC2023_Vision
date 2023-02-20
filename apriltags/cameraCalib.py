@@ -15,7 +15,7 @@ objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
 
 # test_path = '/home/addison/FRC2023_Vision/apriltags/calibImgs/*.jpg'
-test_path = "C:/Users/astro/OneDrive/Documents/FRC2023_Vision/apriltags/calibImgs/*.jpg"
+test_path = "C:/Users/astro/OneDrive/Documents/FRC2023_Vision/apriltags/calibImgs2/*.jpg" #i was gonna calibrate to my webcam lol
 images = glob.glob(test_path)
 print(len(images))
 for i, fname in enumerate(images):

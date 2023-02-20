@@ -9,13 +9,14 @@ from tag import Tag
 
 TAG_SIZE = 0.15244
 FAMILIES = "tag16h5"
+RES = (640,480)
 
 def get_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--device", type=int, default=0)
-    parser.add_argument("--width", help='cap width', type=int, default=1280)
-    parser.add_argument("--height", help='cap height', type=int, default=720)
+    parser.add_argument("--device", type=int, default=1)
+    parser.add_argument("--width", help='cap width', type=int, default=RES[0])
+    parser.add_argument("--height", help='cap height', type=int, default=RES[1])
 
     parser.add_argument("--families", type=str, default=FAMILIES)
     parser.add_argument("--nthreads", type=int, default=4)
@@ -72,6 +73,20 @@ def main():
         decode_sharpening=decode_sharpening,
         debug=debug,
     )
+    camera_info = {}
+    # Camera Info Setup
+    camera_info["res"] = RES
+
+    camera_info["K"] = np.array([[367.7013393230449, 0.0, 323.3378629663504], [0.0, 369.7151984089531, 162.63699072828888], [0.0, 0.0, 1.0]])
+    camera_info["params"] = [367.7013393230449, 369.7151984089531, 323.3378629663504, 162.63699072828888]
+    camera_info["D"] = np.array([[-0.042203858496260044], [-0.08378810354583231], [0.4607572694660925], [-0.5671615907615343]])
+
+    camera_info["fisheye"] = True
+    camera_info["map_1"], camera_info["map_2"] = cv.fisheye.initUndistortRectifyMap(camera_info["K"], camera_info["D"],
+                                                                                 np.eye(3), camera_info["K"],
+                                                                                 camera_info["res"], cv.CV_16SC2)
+
+    
 
     elapsed_time = 1
 
@@ -82,11 +97,16 @@ def main():
             break
         debug_image = copy.deepcopy(image)
 
-        image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        fwidth = (RES[0] + 31) // 32 * 32
+        fheight = (RES[1] + 15) // 16 * 16
+        # Load the Y (luminance) data from the stream
+        undistorted_image = cv.remap(debug_image, camera_info["map_1"], camera_info["map_2"], interpolation=cv.INTER_LINEAR)
+        gray = cv.cvtColor(undistorted_image,cv.COLOR_BGR2GRAY)
+
         tags = at_detector.detect(
-            image,
+            gray,
             estimate_tag_pose=True,
-            camera_params=[307, 307, 640, 360],
+            camera_params=camera_info["params"],
             tag_size=TAG_SIZE,
         )
         
@@ -99,21 +119,22 @@ def main():
                 continue
             detections.append(detection)
             curPose = definedTags.estimate_pose(detection.tag_id, detection.pose_R, detection.pose_t)
-            pose_x_sum += curPose[0][0]
-            pose_y_sum += curPose[1][0]
-            pose_z_sum += curPose[2][0]
+            if curPose is not None:
+                pose_x_sum += curPose[0][0]
+                pose_y_sum += curPose[1][0]
+                pose_z_sum += curPose[2][0]
 
         size = len(detections)
         if size > 0:
             pose = np.array([pose_x_sum/size,pose_y_sum/size,pose_z_sum/size])
-            debug_image = draw_tags(debug_image, detections, elapsed_time, pose)
+            undistorted_image = draw_tags(undistorted_image, detections, elapsed_time, pose)
 
         elapsed_time = time.time() - start_time
 
         if cv.waitKey(1) & 0xFF == ord('q'):
             break
 
-        cv.imshow('AprilTags', debug_image)
+        cv.imshow('AprilTags', undistorted_image)
 
     cap.release()
     cv.destroyAllWindows()
